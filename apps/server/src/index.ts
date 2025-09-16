@@ -2,8 +2,9 @@ import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import dotenv from "dotenv"
-
+import { TokenRoutes } from "./routes"
 dotenv.config()
+import { validateConfig } from "./config"
 
 
 const port = Number(process.env.PORT) || 3001
@@ -11,7 +12,13 @@ class App {
     public app: express.Application
 
     constructor() {
-        this.app = express()
+        this.validateEnvVars();
+        this.app = express();
+        this.initializeMiddleware();
+        this.initlizeRoutes();
+    }
+    validateEnvVars() {
+        validateConfig();
     }
 
     initializeMiddleware() {
@@ -25,6 +32,7 @@ class App {
             console.log("Server running ")
             res.send('Server is up and running fine !')
         })
+        this.app.use('/api', TokenRoutes);
     }
     listen(PORT: number) {
         this.app.listen(PORT, () => {
