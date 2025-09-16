@@ -11,10 +11,13 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@livekit/components-react": "^2.9.14",
     "@repo/ui": "*",
+    "axios": "^1.12.2",
     "next": "^15.4.2",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.4.6",
