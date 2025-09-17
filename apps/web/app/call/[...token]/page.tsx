@@ -18,6 +18,7 @@ export default function LiveKitRoom() {
   const roomRef = useRef<Room | null>(null);
   const localAudioTrackRef = useRef<any>(null);
   const [micOn, setMicOn] = useState<boolean>(true);
+  const [roomName, setRoomName] = useState<string | null>(null);
   // ✅ Handle token being a string or string[]
   const tokenParam = params?.token;
   const token = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam;
@@ -30,9 +31,9 @@ export default function LiveKitRoom() {
       return;
     }
 
-  const room = new Room();
-  roomRef.current = room;
-  const attachedAudioElements: HTMLMediaElement[] = [];
+    const room = new Room();
+    roomRef.current = room;
+    const attachedAudioElements: HTMLMediaElement[] = [];
 
     async function joinRoom() {
       room.on("participantConnected", (participant: RemoteParticipant) => {
@@ -58,6 +59,9 @@ export default function LiveKitRoom() {
         await room.connect(url as string, token as string);
         console.log("✅ Connected to LiveKit room:", room.name);
 
+        // show the room name in UI
+        setRoomName(room.name ?? null);
+
         // ✅ Publish local audio so others can hear you
         const localTrack = await createLocalAudioTrack();
         // store reference so UI can toggle mic
@@ -75,6 +79,7 @@ export default function LiveKitRoom() {
       console.log("🔌 Cleaning up LiveKit connection...");
       attachedAudioElements.forEach((el) => el.remove());
       roomRef.current?.disconnect();
+      setRoomName(null);
     };
   }, [token]);
 
@@ -108,6 +113,7 @@ export default function LiveKitRoom() {
     <div className="flex flex-col items-center justify-center min-h-screen">
       <div className="w-full max-w-md p-6 bg-white/60 backdrop-blur rounded-lg shadow-md">
         <h1 className="text-2xl font-semibold mb-2">LiveKit Room</h1>
+        <p className="text-sm text-gray-700 mb-4">Joined room: {roomName ?? "—"}</p>
         <p className="text-sm text-gray-600 mb-4">Connected — waiting for remote audio.</p>
 
         <div className="flex gap-3">

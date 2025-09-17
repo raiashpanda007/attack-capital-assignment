@@ -5,10 +5,8 @@ import { LIVEKIT_API_KEY, LIVEKIT_API_SECRET } from "../config";
 
 const GenerateTokenSchema = zod.object({
   userName: zod.string().min(3).max(30),
-  roomName: zod.string().min(3),
-  roomType: zod.enum(["main", "transfer"]), 
+  roomName: zod.string().min(3).max(50),
 });
-
 const GenerateToken = asyncHandler(async (req, res) => {
   const parseResult = GenerateTokenSchema.safeParse(req.body);
   if (!parseResult.success) {
@@ -17,16 +15,13 @@ const GenerateToken = asyncHandler(async (req, res) => {
       .json(new Response(400, "Invalid request data", parseResult.error));
   }
 
-  const { userName, roomName, roomType } = parseResult.data;
+  const { userName, roomName } = parseResult.data;
 
-  const finalRoomName =
-    roomType === "transfer"
-      ? `${roomName}-transfer`
-      : `${roomName}-main`;
+  const finalRoomName = `${roomName}-main-room`;
 
   const at = new AccessToken(LIVEKIT_API_KEY!, LIVEKIT_API_SECRET!, {
     identity: userName,
-    ttl: 600, 
+    ttl: 600,
   });
 
   at.addGrant({
