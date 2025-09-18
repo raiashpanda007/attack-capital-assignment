@@ -301,15 +301,6 @@ export default function LiveKitRoom() {
               >
                 {starting ? "Starting..." : completing ? "Completing..." : warmStarted ? "Complete Transfer" : "Start Warm Transfer"}
               </button>
-              <button
-                onClick={() => {
-                  if (transferLink) navigator.clipboard?.writeText(transferLink);
-                }}
-                className="py-2 px-3 bg-slate-700 text-white rounded"
-                disabled={!transferLink}
-              >
-                Copy Link
-              </button>
             </div>
             {transferLink && <div className="text-sm text-gray-700 break-all">Transfer link: {transferLink}</div>}
           </div>
