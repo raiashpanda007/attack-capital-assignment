@@ -18,6 +18,8 @@ export default function LiveKitRoom() {
   const roomRef = useRef<Room | null>(null);
   const localAudioTrackRef = useRef<any>(null);
   const [micOn, setMicOn] = useState<boolean>(true);
+  const [participants, setParticipants] = useState<RemoteParticipant[]>([]);
+  const [participantCount, setParticipantCount] = useState<number>(0);
   const [roomName, setRoomName] = useState<string | null>(null);
   // ✅ Handle token being a string or string[]
   const tokenParam = params?.token;
@@ -36,9 +38,20 @@ export default function LiveKitRoom() {
     const attachedAudioElements: HTMLMediaElement[] = [];
 
     async function joinRoom() {
-      room.on("participantConnected", (participant: RemoteParticipant) => {
+      const onParticipantConnected = (participant: RemoteParticipant) => {
         console.log("👤 Participant connected:", participant.identity);
-      });
+        setParticipants((p) => [...p, participant]);
+        setParticipantCount((c) => c + 1);
+      };
+
+      const onParticipantDisconnected = (participant: RemoteParticipant) => {
+        console.log("👤 Participant disconnected:", participant.identity);
+        setParticipants((p) => p.filter((pp) => pp.sid !== participant.sid));
+        setParticipantCount((c) => Math.max(0, c - 1));
+      };
+
+      room.on("participantConnected", onParticipantConnected);
+      room.on("participantDisconnected", onParticipantDisconnected);
 
       room.on(
         "trackSubscribed",
@@ -62,12 +75,67 @@ export default function LiveKitRoom() {
         // show the room name in UI
         setRoomName(room.name ?? null);
 
+        // populate initial participants (try multiple shapes)
+        try {
+          const anyRoom = room as any;
+          let initial: RemoteParticipant[] = [];
+          const mapsToTry = ["participants", "remoteParticipants", "participantMap"];
+          for (const key of mapsToTry) {
+            const map = anyRoom[key];
+            if (map && typeof map.values === "function") {
+              initial = Array.from(map.values());
+              break;
+            }
+          }
+          if (initial.length === 0 && typeof anyRoom.getRemoteParticipants === "function") {
+            try {
+              const res = anyRoom.getRemoteParticipants();
+              if (Array.isArray(res)) initial = res as RemoteParticipant[];
+            } catch {}
+          }
+
+          if (initial.length > 0) {
+            setParticipants(initial as RemoteParticipant[]);
+            setParticipantCount(initial.length + 1);
+          } else if (typeof anyRoom.numParticipants === "number") {
+            setParticipantCount(anyRoom.numParticipants);
+          } else {
+            setParticipantCount(1);
+          }
+        } catch (e) {
+          console.debug("Could not read initial participants map", e);
+        }
+
         // ✅ Publish local audio so others can hear you
         const localTrack = await createLocalAudioTrack();
         // store reference so UI can toggle mic
         localAudioTrackRef.current = localTrack;
         await room.localParticipant.publishTrack(localTrack);
         console.log("🎤 Local audio track published");
+
+        // Subscribe to server-sent events for transfer notifications using our identity
+        try {
+          const identity = (room.localParticipant as any)?.identity ?? null;
+          if (identity) {
+            const es = new EventSource(`${process.env.NEXT_PUBLIC_SERVER_URL}/subscribe-transfer/${encodeURIComponent(identity)}`);
+            es.addEventListener("transfer", (ev: MessageEvent) => {
+              try {
+                const payload = JSON.parse((ev as any).data);
+                const token = payload.token;
+                if (token) {
+                  // navigate to support room token
+                  window.location.href = `/call/${token}`;
+                }
+              } catch (e) {
+                console.error("Failed to parse transfer SSE payload", e);
+              }
+            });
+            // cleanup when leaving
+            (roomRef.current as any).__sse = es;
+          }
+        } catch (e) {
+          console.warn("Could not open SSE for transfers", e);
+        }
       } catch (error) {
         console.error("❌ Failed to connect:", error);
       }
@@ -114,7 +182,15 @@ export default function LiveKitRoom() {
       <div className="w-full max-w-md p-6 bg-white/60 backdrop-blur rounded-lg shadow-md">
         <h1 className="text-2xl font-semibold mb-2">LiveKit Room</h1>
         <p className="text-sm text-gray-700 mb-4">Joined room: {roomName ?? "—"}</p>
-        <p className="text-sm text-gray-600 mb-4">Connected — waiting for remote audio.</p>
+        <p className="text-sm text-gray-600 mb-2">Connected — waiting for remote audio.</p>
+        <div className="mb-4 text-sm text-gray-700">
+          <div className="font-medium">Participants: {participantCount ?? participants.length}</div>
+          <ul className="list-disc list-inside mt-2">
+            {participants.map((p) => (
+              <li key={p.sid}>{p.identity ?? p.name ?? p.sid}</li>
+            ))}
+          </ul>
+        </div>
 
         <div className="flex gap-3">
           <button

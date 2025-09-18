@@ -33,16 +33,33 @@ const AgentToken = asyncHandler(async (req, res) => {
         const { roomName } = parseResult.data;
 
         const roomService = new RoomServiceClient(LIVEKIT_URL!, LIVEKIT_API_KEY!, LIVEKIT_API_SECRET!);
-        const participants = await roomService.listParticipants(`${roomName}-main-room`);
-        console.log("Participants in room:", participants.length);
-        console.debug(participants);
+
+        const mainRoomName = `${roomName}-main-room`;
+        let participants = [] as any[];
+
+        try {
+
+            participants = await roomService.listParticipants(mainRoomName);
+            console.log("Participants in room:", participants.length);
+            console.debug(participants);
+        } catch (err: any) {
+            console.warn("Could not list participants for room. Attempting to create room:", mainRoomName, err?.message ?? err);
+            try {
+                await roomService.createRoom({ name: mainRoomName });
+                console.log("Created room:", mainRoomName);
+            } catch (createErr) {
+                console.error("Failed to create room:", createErr);
+                return res.status(500).json(new Response(500, "Failed to create room", createErr as string));
+            }
+        }
+
+        // If room is empty or only this agent, issue a token for main-room, otherwise support-room
         if (participants.length === 0 || participants.length === 1) {
-            const token = await generateToken(`${roomName}-main-room`, "Agent A");
-            return res.status(200).json(new Response(200, "Token generated successfully", { token, room: `${roomName}-main-room` }));
+            const token = await generateToken(mainRoomName, "Agent A");
+            return res.status(200).json(new Response(200, "Token generated successfully", { token, room: mainRoomName }));
         } else {
             const token = await generateToken(`${roomName}-support-room`, "Agent B");
             return res.status(200).json(new Response(200, "Token generated successfully", { token, room: `${roomName}-support-room` }));
-
         }
         
 

@@ -1,6 +1,12 @@
 import GenerateToken from "./token.controller"
 import AgentToken from "./agent.controller"
+import { startWarmTransfer, completeTransfer, subscribeTransfer, subscribeRoom } from "./transfer.controller"
+
 export {
     GenerateToken,
-    AgentToken
+    AgentToken,
+    startWarmTransfer,
+    completeTransfer,
+    subscribeTransfer,
+    subscribeRoom
 }
