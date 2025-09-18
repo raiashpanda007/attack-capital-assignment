@@ -15,7 +15,6 @@ import {
 export default function LiveKitRoom() {
   const params = useParams();
   const router = useRouter();
-  // refs and state for UI controls (kept minimal to avoid changing LiveKit logic)
   const roomRef = useRef<Room | null>(null);
   const localAudioTrackRef = useRef<any>(null);
   const [micOn, setMicOn] = useState<boolean>(true);
@@ -28,7 +27,6 @@ export default function LiveKitRoom() {
   const [transferLink, setTransferLink] = useState<string | null>(null);
   const [starting, setStarting] = useState<boolean>(false);
   const [completing, setCompleting] = useState<boolean>(false);
-  // ✅ Handle token being a string or string[]
   const tokenParam = params?.token;
   const token = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam;
 
@@ -44,7 +42,6 @@ export default function LiveKitRoom() {
     roomRef.current = room;
     const attachedAudioElements: HTMLMediaElement[] = [];
 
-    // declare handlers in outer scope so cleanup can remove them
     const onParticipantConnected = (participant: RemoteParticipant) => {
       console.log("👤 Participant connected:", participant.identity);
       setParticipants((p) => [...p, participant]);
@@ -80,10 +77,8 @@ export default function LiveKitRoom() {
         await room.connect(url as string, token as string);
         console.log("✅ Connected to LiveKit room:", room.name);
 
-        // show the room name in UI
         setRoomName(room.name ?? null);
 
-        // subscribe to room-level SSE so this agent sees warm transfer start events
         try {
           const baseRoom = room.name ? (room.name as string).replace(/-main-room$|-support-room$/, "") : null;
           if (baseRoom) {
@@ -100,12 +95,23 @@ export default function LiveKitRoom() {
               }
             });
             (roomRef.current as any).__roomSse = es;
+            (async () => {
+              try {
+                const resp = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/warm-transfer/${encodeURIComponent(baseRoom)}`);
+                const json = await resp.json();
+                const data = json?.data;
+                if (data?.active) {
+                  setWarmStarted(true);
+                  setSupportRoomName(data.supportRoom);
+                }
+              } catch (e) {
+              }
+            })();
           }
         } catch (e) {
           console.warn("Could not open room SSE for warm events", e);
         }
 
-        // populate initial participants list (use any-cast to avoid strict SDK typing differences)
         try {
           const anyRoom = room as any;
           let initial: RemoteParticipant[] = [];
@@ -126,21 +132,17 @@ export default function LiveKitRoom() {
 
           if (initial.length > 0) {
             setParticipants(initial as RemoteParticipant[]);
-            setParticipantCount(initial.length + 1); // include self
+            setParticipantCount(initial.length + 1);
           } else if (typeof anyRoom.numParticipants === "number") {
             setParticipantCount(anyRoom.numParticipants);
           } else {
-            // default to 1 (self) if nothing else available
             setParticipantCount(1);
           }
         } catch (e) {
-          // ignore if participants map isn't available on this build
           console.debug("Could not read initial participants map", e);
         }
 
-        // ✅ Publish local audio so others can hear you
         const localTrack = await createLocalAudioTrack();
-        // store reference so UI can toggle mic
         localAudioTrackRef.current = localTrack;
         await room.localParticipant.publishTrack(localTrack);
         console.log("🎤 Local audio track published");
@@ -154,13 +156,11 @@ export default function LiveKitRoom() {
     return () => {
       console.log("🔌 Cleaning up LiveKit connection...");
       attachedAudioElements.forEach((el) => el.remove());
-      // remove listeners and disconnect
       if (roomRef.current) {
         try {
           (roomRef.current as any).off?.("participantConnected", onParticipantConnected);
           (roomRef.current as any).off?.("participantDisconnected", onParticipantDisconnected);
         } catch (e) {
-          // ignore if off isn't available
         }
         roomRef.current.disconnect();
       }
@@ -168,12 +168,9 @@ export default function LiveKitRoom() {
     };
   }, [token]);
 
-
- 
   function toggleMic() {
     const t = localAudioTrackRef.current;
     if (!t) return;
-
 
     const media = (t as any).mediaStreamTrack;
     if (media && typeof media.enabled === "boolean") {
@@ -194,11 +191,9 @@ export default function LiveKitRoom() {
   }
 
   function handleAddWarmTransfer() {
-    // Start warm transfer from agent's in-call screen.
     (async () => {
       if (starting) return;
       setStarting(true);
-      // optimistically switch UI so agent sees Complete Transfer immediately
       setWarmStarted(true);
       try {
         const body = {
@@ -212,19 +207,15 @@ export default function LiveKitRoom() {
         const already = data?.alreadyStarted ?? false;
         if (!token) {
           console.error("No support token returned for warm transfer", resp.data);
-          // revert optimistic UI
           setWarmStarted(false);
           setStarting(false);
           return;
         }
 
-        // Remember support-room info
         setSupportToken(token);
         setSupportRoomName(supportRoom);
 
-        // If server indicated this was newly started, open the support room tab for the requester.
         if (!already) {
-          // Mute local audio track if we have one (stay connected but muted)
           const t = localAudioTrackRef.current as any;
           try {
             const media = t?.mediaStreamTrack;
@@ -239,8 +230,6 @@ export default function LiveKitRoom() {
             console.warn("Failed to mute local audio track:", muteErr);
           }
 
-          // Open the support-room in a new tab so the agent can prep there while remaining
-          // connected (and muted) in the current main room.
           const supportUrl = `${window.location.origin}/call/agent/${token}`;
           window.open(supportUrl, "_blank");
         }
@@ -273,8 +262,6 @@ export default function LiveKitRoom() {
 
       const link = `${window.location.origin}/call/${userToken}`;
       setTransferLink(link);
-      // Automatic user movement requires a notification mechanism (WebSocket/SSE).
-      // Reset warmStarted since transfer was completed
       setWarmStarted(false);
     } catch (err) {
       console.error("Failed to complete transfer:", err);

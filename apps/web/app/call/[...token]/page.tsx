@@ -14,14 +14,12 @@ import {
 export default function LiveKitRoom() {
   const params = useParams();
   const router = useRouter();
-  // refs and state for UI controls (kept minimal to avoid changing LiveKit logic)
   const roomRef = useRef<Room | null>(null);
   const localAudioTrackRef = useRef<any>(null);
   const [micOn, setMicOn] = useState<boolean>(true);
   const [participants, setParticipants] = useState<RemoteParticipant[]>([]);
   const [participantCount, setParticipantCount] = useState<number>(0);
   const [roomName, setRoomName] = useState<string | null>(null);
-  // ✅ Handle token being a string or string[]
   const tokenParam = params?.token;
   const token = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam;
 
@@ -72,10 +70,8 @@ export default function LiveKitRoom() {
         await room.connect(url as string, token as string);
         console.log("✅ Connected to LiveKit room:", room.name);
 
-        // show the room name in UI
         setRoomName(room.name ?? null);
 
-        // populate initial participants (try multiple shapes)
         try {
           const anyRoom = room as any;
           let initial: RemoteParticipant[] = [];
@@ -106,14 +102,11 @@ export default function LiveKitRoom() {
           console.debug("Could not read initial participants map", e);
         }
 
-        // ✅ Publish local audio so others can hear you
         const localTrack = await createLocalAudioTrack();
-        // store reference so UI can toggle mic
         localAudioTrackRef.current = localTrack;
         await room.localParticipant.publishTrack(localTrack);
         console.log("🎤 Local audio track published");
 
-        // Subscribe to server-sent events for transfer notifications using our identity
         try {
           const identity = (room.localParticipant as any)?.identity ?? null;
           if (identity) {
@@ -123,14 +116,12 @@ export default function LiveKitRoom() {
                 const payload = JSON.parse((ev as any).data);
                 const token = payload.token;
                 if (token) {
-                  // navigate to support room token
                   window.location.href = `/call/${token}`;
                 }
               } catch (e) {
                 console.error("Failed to parse transfer SSE payload", e);
               }
             });
-            // cleanup when leaving
             (roomRef.current as any).__sse = es;
           }
         } catch (e) {
@@ -151,12 +142,10 @@ export default function LiveKitRoom() {
     };
   }, [token]);
 
-  // Toggle microphone by enabling/disabling the underlying MediaStreamTrack if available.
   function toggleMic() {
     const t = localAudioTrackRef.current;
     if (!t) return;
 
-    // livekit LocalTrack exposes mediaStreamTrack in many builds
     const media = (t as any).mediaStreamTrack;
     if (media && typeof media.enabled === "boolean") {
       media.enabled = !media.enabled;
@@ -164,14 +153,12 @@ export default function LiveKitRoom() {
       return;
     }
 
-    // Fallback: some track implementations have setEnabled
     if (typeof t.setEnabled === "function") {
       t.setEnabled(!micOn);
       setMicOn(!micOn);
     }
   }
 
-  // Exit the room and navigate to root
   function handleExit() {
     roomRef.current?.disconnect();
     router.push("/");
@@ -211,6 +198,3 @@ export default function LiveKitRoom() {
     </div>
   );
 }
-
-// --- Helpers and outer refs/state ---
-// Keep these outside the component logic to avoid changing LiveKit behavior in the effect
