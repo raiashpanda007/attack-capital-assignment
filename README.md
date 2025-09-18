@@ -1,58 +1,103 @@
-# Turborepo Tailwind CSS starter
+# attack-capital-assignment — Monorepo
 
-This Turborepo starter is maintained by the Turborepo core team.
+This repository is a **Turborepo-based monorepo** containing:
 
-## Using this example
+* `apps/web` — **Next.js** frontend for user/agent call UI and transfer flow
+* `apps/server` — **Node/Express (TypeScript)** API for token generation, participant checks, and room management
+* `packages/ui` — shared UI primitives and styles
+* `packages/*` — tooling (eslint, tsconfig, tailwind)
 
-Run the following command:
+---
 
-```sh
-npx create-turbo@latest -e with-tailwind
+## 🚀 **Overview**
+
+This project implements a **warm transfer flow using LiveKit**.
+A warm transfer allows an agent (Agent A) to bring another agent (Agent B) into the call after a private discussion, without disconnecting the user.
+
+---
+
+## 🎯 **Key Objectives Achieved**
+
+✅ **Real-time 1:1 audio call** between user and agent using LiveKit
+✅ **Automatic role assignment** (Agent A / Agent B) based on participant count in main room
+✅ **Support room creation** for private conversation between agents
+✅ **Agent A mute logic** during private discussion so user is on hold
+✅ **Complete transfer flow:** Agent A or B clicks transfer → user joins support room → Agent B takes over seamlessly
+✅ **Monorepo setup** with Turborepo, clean separation of web and server apps
+✅ **Environment-based configuration** (LiveKit keys, URLs)
+
+---
+
+## 🧩 **Architecture & Flow**
+
+**High-level flow:**
+
+1. **User joins main room** (`/user`)
+2. **Agent A joins main room** (`/agent`) — first agent gets connected to user
+3. **New agent (Agent B) joins** — routed to a temporary **support room**
+4. **Agent A clicks Start Transfer:**
+
+   * Agent A is muted in main room
+   * Agent A + Agent B talk privately in support room
+5. **Complete Transfer:**
+
+   * User is moved to support room
+   * Agent B takes over call
+   * Agent A exits or unmutes based on flow
+
+> **Goal:** User never disconnects during the transfer. Agents can have a private hand-off before the user is connected to Agent B.
+
+---
+
+## 🧠 **LLM Component**
+
+Due to **time constraints and final mid-semester exams**, I was not able to build the LLM integration.
+The project focuses on completing the **real-time warm transfer flow**, which was the main objective of the assignment.
+
+---
+
+## 🛠 **Tech Stack**
+
+* **Frontend:** Next.js 14, TypeScript, TailwindCSS
+
+* **Backend:** Express.js, TypeScript, LiveKit Server SDK
+
+* **Realtime:** LiveKit Web SDK (for room joins, mute/unmute, participant events)
+
+---
+
+## ⚡ Quick Start
+
+1. **Install dependencies:**
+
+```bash
+npm install
 ```
 
-## What's inside?
 
-This Turborepo includes the following packages/apps:
+2. **Start the apps in development:**
 
-### Apps and Packages
+```bash
+# Server
+cd apps/server
+npm run tsbuild
+npm run dev
 
-- `docs`: a [Next.js](https://nextjs.org/) app with [Tailwind CSS](https://tailwindcss.com/)
-- `web`: another [Next.js](https://nextjs.org/) app with [Tailwind CSS](https://tailwindcss.com/)
-- `ui`: a stub React component library with [Tailwind CSS](https://tailwindcss.com/) shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Building packages/ui
-
-This example is set up to produce compiled styles for `ui` components into the `dist` directory. The component `.tsx` files are consumed by the Next.js apps directly using `transpilePackages` in `next.config.ts`. This was chosen for several reasons:
-
-- Make sharing one `tailwind.config.ts` to apps and packages as easy as possible.
-- Make package compilation simple by only depending on the Next.js Compiler and `tailwindcss`.
-- Ensure Tailwind classes do not overwrite each other. The `ui` package uses a `ui-` prefix for it's classes.
-- Maintain clear package export boundaries.
-
-Another option is to consume `packages/ui` directly from source without building. If using this option, you will need to update the `tailwind.config.ts` in your apps to be aware of your package locations, so it can find all usages of the `tailwindcss` class names for CSS compilation.
-
-For example, in [tailwind.config.ts](packages/tailwind-config/tailwind.config.ts):
-
-```js
-  content: [
-    // app content
-    `src/**/*.{js,ts,jsx,tsx}`,
-    // include packages if not transpiling
-    "../../packages/ui/*.{js,ts,jsx,tsx}",
-  ],
+# Frontend
+cd apps/web
+npm run dev
 ```
 
-If you choose this strategy, you can remove the `tailwindcss` and `autoprefixer` dependencies from the `ui` package.
+Or from repo root (if you have turbo installed):
 
-### Utilities
+```bash
+npm run dev
+```
 
-This Turborepo has some additional tools already setup for you:
+---
 
-- [Tailwind CSS](https://tailwindcss.com/) for styles
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+## 📌 Future Improvements
+
+* **LLM Integration:** Automated call summary before transfer
+* **On-Hold Music/TTS:** User hears message while waiting during transfer
+* **Better UI/UX:** Add participant status indicators & call timers
